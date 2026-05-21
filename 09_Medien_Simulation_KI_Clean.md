@@ -864,6 +864,473 @@ Drei Stufen der KI-Kompetenz für Lehrkräfte:
 
 ---
 
+# Endliche Automaten – Interaktiver Visualisierer
+
+> Mit diesem Werkzeug könnt ihr eigene endliche Automaten (deterministisch, DEA) definieren, als Graphen anzeigen lassen und Eingabewörter Schritt für Schritt simulieren.
+
+## Was ist ein endlicher Automat?
+
+Ein **deterministischer endlicher Automat (DEA)** besteht aus:
+
+| Symbol | Bedeutung |
+|--------|-----------|
+| **Q** | Endliche Menge von Zuständen |
+| **Σ** | Eingabealphabet (erlaubte Zeichen) |
+| **δ** | Übergangsfunktion: δ(Zustand, Zeichen) → nächster Zustand |
+| **q₀** | Anfangszustand |
+| **F** | Menge der Endzustände (akzeptierende Zustände) |
+
+Ein Automat **akzeptiert** ein Wort, wenn er nach dem Lesen aller Zeichen in einem Endzustand ist.
+
+## Interaktiver Automat
+
+<div id="dfa-app" style="font-family:system-ui,sans-serif;font-size:14px;">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+  <div style="background:#f7f7f7;border:1px solid #e0e0e0;border-radius:8px;padding:12px 14px;">
+    <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Zustände &amp; Alphabet</div>
+    <label style="font-size:11px;color:#666;display:block;margin-bottom:3px;">Zustände – Anfang mit <code>&gt;</code>, Endzustand mit <code>*</code></label>
+    <textarea id="dfa_states" rows="2" style="width:100%;border:1px solid #ccc;border-radius:5px;padding:6px;font-family:monospace;font-size:12px;resize:vertical;">>q0, q1*, q2</textarea>
+    <label style="font-size:11px;color:#666;display:block;margin:6px 0 3px;">Alphabet (kommagetrennt)</label>
+    <textarea id="dfa_alpha" rows="1" style="width:100%;border:1px solid #ccc;border-radius:5px;padding:6px;font-family:monospace;font-size:12px;resize:vertical;">0, 1</textarea>
+  </div>
+  <div style="background:#f7f7f7;border:1px solid #e0e0e0;border-radius:8px;padding:12px 14px;">
+    <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Übergänge</div>
+    <label style="font-size:11px;color:#666;display:block;margin-bottom:3px;">Format: <code>Zustand, Zeichen → Ziel</code></label>
+    <textarea id="dfa_trans" rows="6" style="width:100%;border:1px solid #ccc;border-radius:5px;padding:6px;font-family:monospace;font-size:12px;resize:vertical;">q0, 0 → q0
+q0, 1 → q1
+q1, 0 → q2
+q1, 1 → q0
+q2, 0 → q1
+q2, 1 → q2</textarea>
+  </div>
+</div>
+
+<div style="margin-bottom:10px;display:flex;flex-wrap:wrap;gap:8px;">
+  <button onclick="dfaBuild()" style="background:#222;color:#fff;border:none;border-radius:5px;padding:7px 16px;cursor:pointer;font-size:13px;">▶ Automat aufbauen</button>
+  <button onclick="dfaLoadExample('even1')" style="background:#fff;color:#333;border:1px solid #ccc;border-radius:5px;padding:7px 14px;cursor:pointer;font-size:13px;">Bsp: gerade Anzahl von 1en</button>
+  <button onclick="dfaLoadExample('div3')" style="background:#fff;color:#333;border:1px solid #ccc;border-radius:5px;padding:7px 14px;cursor:pointer;font-size:13px;">Bsp: Binärzahl ÷ 3</button>
+</div>
+<div id="dfa_err" style="color:#c0392b;font-size:12px;margin-bottom:6px;"></div>
+
+<canvas id="dfa_canvas" height="280" style="width:100%;border-radius:8px;border:1px solid #e0e0e0;background:#fff;display:block;"></canvas>
+
+<div style="background:#f7f7f7;border:1px solid #e0e0e0;border-radius:8px;padding:12px 14px;margin-top:12px;">
+  <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Wort simulieren</div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px;">
+    <input type="text" id="dfa_word" placeholder="z.B. 101" style="border:1px solid #ccc;border-radius:5px;padding:6px 10px;font-size:13px;width:160px;">
+    <button onclick="dfaStartSim()" style="background:#222;color:#fff;border:none;border-radius:5px;padding:7px 14px;cursor:pointer;font-size:13px;">Simulieren</button>
+    <button onclick="dfaReset()" style="background:#fff;color:#333;border:1px solid #ccc;border-radius:5px;padding:7px 12px;cursor:pointer;font-size:13px;">Zurücksetzen</button>
+  </div>
+  <div id="dfa_stepctrl" style="display:none;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+    <button onclick="dfaStepBack()" style="background:#fff;color:#333;border:1px solid #ccc;border-radius:5px;padding:5px 12px;cursor:pointer;font-size:12px;">◀ Zurück</button>
+    <button onclick="dfaStepFwd()" style="background:#fff;color:#333;border:1px solid #ccc;border-radius:5px;padding:5px 12px;cursor:pointer;font-size:12px;">Vor ▶</button>
+    <button onclick="dfaRunAll()" style="background:#fff;color:#333;border:1px solid #ccc;border-radius:5px;padding:5px 12px;cursor:pointer;font-size:12px;">Alles ▶▶</button>
+  </div>
+  <div id="dfa_steplabel" style="font-size:11px;color:#888;margin-bottom:4px;"></div>
+  <div id="dfa_trace" style="display:flex;flex-wrap:wrap;gap:5px;min-height:28px;margin-bottom:8px;"></div>
+  <div id="dfa_result"></div>
+</div>
+</div>
+
+<script>
+(function(){
+  var aut=null, steps=[], simPos=-1;
+  var EXAMPLES={
+    even1:{states:'>q0*, q1',alpha:'0, 1',trans:'q0, 0 → q0\nq0, 1 → q1\nq1, 0 → q1\nq1, 1 → q0'},
+    div3:{states:'>r0*, r1, r2',alpha:'0, 1',trans:'r0, 0 → r0\nr0, 1 → r1\nr1, 0 → r2\nr1, 1 → r0\nr2, 0 → r1\nr2, 1 → r2'}
+  };
+  window.dfaLoadExample=function(k){
+    var e=EXAMPLES[k];
+    document.getElementById('dfa_states').value=e.states;
+    document.getElementById('dfa_alpha').value=e.alpha;
+    document.getElementById('dfa_trans').value=e.trans;
+    dfaBuild();
+  };
+  window.dfaBuild=function(){
+    document.getElementById('dfa_err').textContent='';
+    dfaReset();
+    try{
+      var rawS=document.getElementById('dfa_states').value;
+      var rawA=document.getElementById('dfa_alpha').value;
+      var rawT=document.getElementById('dfa_trans').value;
+      var toks=rawS.split(',').map(function(s){return s.trim();}).filter(Boolean);
+      var start=null,accepts={},states=[];
+      toks.forEach(function(tok){
+        var n=tok,isS=false,isA=false;
+        if(n.startsWith('>')){isS=true;n=n.slice(1);}
+        if(n.endsWith('*')){isA=true;n=n.slice(0,-1);}
+        n=n.trim();if(!n)return;
+        states.push(n);
+        if(isS){if(start)throw new Error('Mehrere Anfangszustände (>) gefunden.');start=n;}
+        if(isA)accepts[n]=true;
+      });
+      if(!start)throw new Error('Kein Anfangszustand angegeben. Einen Zustand mit > markieren.');
+      var alpha=rawA.split(',').map(function(s){return s.trim();}).filter(Boolean);
+      if(!alpha.length)throw new Error('Kein Alphabet angegeben.');
+      var delta={};
+      rawT.split('\n').map(function(l){return l.trim();}).filter(Boolean).forEach(function(line){
+        var m=line.match(/^(.+?)\s*,\s*(.+?)\s*[→>-]+\s*(.+)$/);
+        if(!m)throw new Error('Ungültige Zeile: "'+line+'"');
+        var from=m[1].trim(),sym=m[2].trim(),to=m[3].trim();
+        if(states.indexOf(from)<0)throw new Error('Unbekannter Zustand: "'+from+'"');
+        if(states.indexOf(to)<0)throw new Error('Unbekannter Zielzustand: "'+to+'"');
+        if(alpha.indexOf(sym)<0)throw new Error('Unbekanntes Symbol: "'+sym+'"');
+        if(!delta[from])delta[from]={};
+        delta[from][sym]=to;
+      });
+      aut={states:states,alpha:alpha,delta:delta,start:start,accepts:accepts};
+      dfaDraw(null);
+    }catch(e){
+      document.getElementById('dfa_err').textContent='⚠ '+e.message;
+      aut=null;
+    }
+  };
+  function getPos(states){
+    var n=states.length,cx=340,cy=140,r=100,pos={};
+    states.forEach(function(s,i){
+      var a=(2*Math.PI*i/n)-Math.PI/2;
+      pos[s]={x:cx+r*Math.cos(a),y:cy+r*Math.sin(a)};
+    });
+    return pos;
+  }
+  function dfaDraw(hl){
+    if(!aut)return;
+    var canvas=document.getElementById('dfa_canvas');
+    canvas.width=canvas.offsetWidth||680;
+    var ctx=canvas.getContext('2d');
+    var pos=getPos(aut.states);
+    var NR=26;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+    function arrowHead(x,y,angle){
+      ctx.save();ctx.translate(x,y);ctx.rotate(angle);
+      ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(-9,-4);ctx.lineTo(-9,4);ctx.closePath();
+      ctx.fillStyle='#888';ctx.fill();ctx.restore();
+    }
+    aut.states.forEach(function(from){
+      if(!aut.delta[from])return;
+      var selfSyms=[];
+      Object.keys(aut.delta[from]).forEach(function(sym){
+        var to=aut.delta[from][sym];
+        if(from===to){selfSyms.push(sym);return;}
+        var p1=pos[from],p2=pos[to];
+        var dx=p2.x-p1.x,dy=p2.y-p1.y,dist=Math.sqrt(dx*dx+dy*dy);
+        var nx=dx/dist,ny=dy/dist;
+        var sx=p1.x+nx*NR,sy=p1.y+ny*NR,ex=p2.x-nx*NR,ey=p2.y-ny*NR;
+        var cx2=(sx+ex)/2+(-ny)*25,cy2=(sy+ey)/2+nx*25;
+        ctx.beginPath();ctx.moveTo(sx,sy);ctx.quadraticCurveTo(cx2,cy2,ex,ey);
+        ctx.strokeStyle='#aaa';ctx.lineWidth=1.5;ctx.stroke();
+        arrowHead(ex,ey,Math.atan2(ey-cy2,ex-cx2));
+        var lx=(sx+2*cx2+ex)/4,ly=(sy+2*cy2+ey)/4;
+        ctx.fillStyle='#555';ctx.font='12px system-ui';ctx.textAlign='center';
+        ctx.fillText(sym,lx,ly-6);
+      });
+      if(selfSyms.length){
+        var p=pos[from];
+        ctx.beginPath();ctx.arc(p.x,p.y-NR-16,16,0.3*Math.PI,2.7*Math.PI);
+        ctx.strokeStyle='#aaa';ctx.lineWidth=1.5;ctx.stroke();
+        arrowHead(p.x+8,p.y-NR-3,0.6);
+        ctx.fillStyle='#555';ctx.font='12px system-ui';ctx.textAlign='center';
+        ctx.fillText(selfSyms.join(','),p.x,p.y-NR-34);
+      }
+    });
+    var sp=pos[aut.start];
+    ctx.beginPath();ctx.moveTo(sp.x-NR-26,sp.y);ctx.lineTo(sp.x-NR,sp.y);
+    ctx.strokeStyle='#aaa';ctx.lineWidth=1.5;ctx.stroke();
+    arrowHead(sp.x-NR,sp.y,0);
+    aut.states.forEach(function(s){
+      var p=pos[s],isHl=(s===hl);
+      ctx.beginPath();ctx.arc(p.x,p.y,NR,0,2*Math.PI);
+      ctx.fillStyle=isHl?'#2a7ed3':(aut.accepts[s]?'#e8f5e9':'#f5f5f5');
+      ctx.fill();
+      ctx.strokeStyle=aut.accepts[s]?'#2e9e5b':'#aaa';
+      ctx.lineWidth=aut.accepts[s]?2.5:1.5;ctx.stroke();
+      if(aut.accepts[s]){
+        ctx.beginPath();ctx.arc(p.x,p.y,NR-5,0,2*Math.PI);
+        ctx.strokeStyle='#2e9e5b';ctx.lineWidth=1.5;ctx.stroke();
+      }
+      ctx.fillStyle=isHl?'#fff':'#222';
+      ctx.font='bold 12px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(s,p.x,p.y);
+    });
+  }
+  window.dfaStartSim=function(){
+    if(!aut){alert('Bitte zuerst den Automaten aufbauen.');return;}
+    var word=document.getElementById('dfa_word').value.trim();
+    steps=[{state:aut.start,ci:-1}];
+    var cur=aut.start;
+    for(var i=0;i<word.length;i++){
+      var ch=word[i];
+      if(aut.alpha.indexOf(ch)<0){
+        document.getElementById('dfa_result').innerHTML='<span style="background:#fee2e2;color:#991b1b;padding:6px 12px;border-radius:6px;font-size:13px;font-weight:600;">⚠ "'+ch+'" nicht im Alphabet!</span>';
+        return;
+      }
+      var nxt=aut.delta[cur]&&aut.delta[cur][ch];
+      if(!nxt){steps.push({state:null,ci:i});break;}
+      cur=nxt;steps.push({state:cur,ci:i});
+    }
+    simPos=0;
+    document.getElementById('dfa_stepctrl').style.display='flex';
+    renderSim(word);
+  };
+  function renderSim(word){
+    word=word||document.getElementById('dfa_word').value.trim();
+    var trace=document.getElementById('dfa_trace');
+    trace.innerHTML='';
+    steps.forEach(function(step,idx){
+      var el=document.createElement('div');
+      var label=step.ci<0?'Start: '+step.state:step.state?'"'+word[step.ci]+'" → '+step.state:'"'+word[step.ci]+'" → ✕';
+      el.textContent=label;
+      var bg='#ebebeb',col='#555';
+      if(idx===simPos){
+        var isLast=idx===steps.length-1;
+        if(isLast&&step.state&&aut.accepts[step.state]){bg='#2e9e5b';col='#fff';}
+        else if(isLast){bg='#e05a2b';col='#fff';}
+        else{bg='#2a7ed3';col='#fff';}
+      }
+      el.style.cssText='padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;background:'+bg+';color:'+col+';';
+      trace.appendChild(el);
+    });
+    document.getElementById('dfa_steplabel').textContent='Schritt '+simPos+' / '+(steps.length-1);
+    dfaDraw(steps[simPos].state);
+    var isLast=simPos===steps.length-1;
+    var cur=steps[simPos];
+    var res=document.getElementById('dfa_result');
+    if(isLast){
+      var ok=cur.state&&aut.accepts[cur.state];
+      res.innerHTML=ok
+        ?'<span style="background:#dcfce7;color:#166534;padding:7px 12px;border-radius:6px;font-size:13px;font-weight:600;">✓ AKZEPTIERT – „'+word+'" gehört zur Sprache.</span>'
+        :'<span style="background:#fee2e2;color:#991b1b;padding:7px 12px;border-radius:6px;font-size:13px;font-weight:600;">✗ ABGELEHNT – „'+word+'" gehört nicht zur Sprache.</span>';
+    } else {
+      res.innerHTML='<span style="background:#fef9c3;color:#854d0e;padding:7px 12px;border-radius:6px;font-size:13px;font-weight:600;">⏳ Simulation läuft…</span>';
+    }
+  }
+  window.dfaStepFwd=function(){if(simPos<steps.length-1){simPos++;renderSim();}};
+  window.dfaStepBack=function(){if(simPos>0){simPos--;renderSim();}};
+  window.dfaRunAll=function(){simPos=steps.length-1;renderSim();};
+  window.dfaReset=function(){
+    steps=[];simPos=-1;
+    document.getElementById('dfa_trace').innerHTML='';
+    document.getElementById('dfa_result').innerHTML='';
+    document.getElementById('dfa_steplabel').textContent='';
+    document.getElementById('dfa_stepctrl').style.display='none';
+    if(aut)dfaDraw(null);
+  };
+  window.addEventListener('resize',function(){if(aut)dfaDraw(steps[simPos]?steps[simPos].state:null);});
+  dfaBuild();
+})();
+</script>
+
+## Bedienung
+
+1. **Zustände:** Kommagetrennt, Anfangszustand mit `>`, Endzustände mit `*` (z. B. `>q0, q1*, q2`).
+2. **Übergänge:** Format `Zustand, Zeichen → Zielzustand`, eine Zeile pro Übergang.
+3. **Aufbauen** → Graph erscheint.
+4. **Wort eingeben** → Schritt für Schritt oder alles auf einmal simulieren.
+
+## Vorgeladene Beispiele
+
+**Beispiel 1 – Gerade Anzahl von 1en**
+
+Erkennt alle Binärwörter mit gerader Anzahl von 1en (0 gilt als gerade).
+Testet: `1010` ✓, `101` ✗, `11` ✓, `0000` ✓
+
+**Beispiel 2 – Binärzahl durch 3 teilbar**
+
+| Zustand | Bedeutung |
+|---------|-----------|
+| r0 | Rest 0 (Anfangs- und Endzustand) |
+| r1 | Rest 1 |
+| r2 | Rest 2 |
+
+Testet: `110` (=6) ✓, `1001` (=9) ✓, `101` (=5) ✗, `0` (=0) ✓
+
+## Aufgaben
+
+**Aufgabe 1:** Ladet Beispiel 1. Verfolgt Schritt für Schritt das Wort `1101`. Wird es akzeptiert?
+
+**Aufgabe 2:** Konstruiert einen Automaten, der alle Wörter über `{a, b}` akzeptiert, die mit `ab` enden. Wie viele Zustände braucht ihr mindestens?
+
+**Aufgabe 3:** Modifiziert Beispiel 1 so, dass er Wörter mit **ungerader** Anzahl von 0en akzeptiert.
+
+**Aufgabe 4:** Ein endlicher Automat kann $L = \{ a^n b^n \mid n \geq 1 \}$ **nicht** erkennen. Versucht es – was passiert? Warum scheitert jeder DEA an dieser Sprache?
+
+## Formale Definition
+
+$$M = (Q, \Sigma, \delta, q_0, F)$$
+
+Die erkannte Sprache: $L(M) = \{ w \in \Sigma^* \mid \hat{\delta}(q_0, w) \in F \}$
+
+---
+
+
+# Epidemiologisches SIR-Modell
+
+> Das **SIR-Modell** beschreibt, wie sich eine Infektionskrankheit in einer Bevölkerung ausbreitet. Es teilt die Bevölkerung in drei Gruppen auf.
+
+## Grundkonzept
+
+| Kürzel | Name | Bedeutung |
+|--------|------|-----------|
+| **S** | Susceptible (Anfällig) | Noch nicht infizierte Personen |
+| **I** | Infectious (Infektiös) | Aktuell Erkrankte, die andere anstecken können |
+| **R** | Recovered (Erholt) | Genesene Personen mit Immunität |
+
+Zwei Schlüsselparameter steuern den Verlauf:
+
+- **Ansteckungsrate β:** Wie leicht überträgt sich die Krankheit?
+- **Genesungsrate γ:** Wie schnell genesen Infizierte?
+- **Basisreproduktionszahl R₀ = β / γ:** R₀ > 1 → Epidemie möglich; R₀ < 1 → kein Ausbruch.
+
+## Interaktive Simulation
+
+Stellt die Schieberegler ein und beobachtet, wie sich die Kurven verändern!
+
+<div id="sir-app" style="font-family:system-ui,sans-serif;">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+  <div style="background:#f5f5f5;border-radius:8px;padding:12px 14px;">
+    <label style="font-size:12px;color:#555;display:block;margin-bottom:4px;">Ansteckungsrate β</label>
+    <div style="font-size:18px;font-weight:600;" id="bval">0.30</div>
+    <input type="range" id="sir_beta" min="0.05" max="0.80" step="0.01" value="0.30" style="width:100%;margin-top:6px;">
+  </div>
+  <div style="background:#f5f5f5;border-radius:8px;padding:12px 14px;">
+    <label style="font-size:12px;color:#555;display:block;margin-bottom:4px;">Genesungsrate γ</label>
+    <div style="font-size:18px;font-weight:600;" id="gval">0.10</div>
+    <input type="range" id="sir_gamma" min="0.01" max="0.50" step="0.01" value="0.10" style="width:100%;margin-top:6px;">
+  </div>
+  <div style="background:#f5f5f5;border-radius:8px;padding:12px 14px;">
+    <label style="font-size:12px;color:#555;display:block;margin-bottom:4px;">Bevölkerungsgröße N</label>
+    <div style="font-size:18px;font-weight:600;" id="nval">10000</div>
+    <input type="range" id="sir_n" min="1000" max="100000" step="1000" value="10000" style="width:100%;margin-top:6px;">
+  </div>
+  <div style="background:#f5f5f5;border-radius:8px;padding:12px 14px;">
+    <label style="font-size:12px;color:#555;display:block;margin-bottom:4px;">Anfangs-Infizierte I₀</label>
+    <div style="font-size:18px;font-weight:600;" id="i0val">10</div>
+    <input type="range" id="sir_i0" min="1" max="500" step="1" value="10" style="width:100%;margin-top:6px;">
+  </div>
+  <div style="grid-column:span 2;background:#f0f4ff;border:1px solid #c8d5f5;border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <div style="font-size:12px;color:#555;">Basisreproduktionszahl R₀ = β / γ</div>
+      <div style="font-size:20px;font-weight:700;" id="r0val">3.00</div>
+    </div>
+    <div id="r0status" style="font-size:12px;padding:3px 10px;border-radius:20px;font-weight:600;background:#fee2e2;color:#991b1b;">Epidemie möglich</div>
+  </div>
+</div>
+
+<canvas id="sirChart" height="280" style="width:100%;border-radius:8px;border:1px solid #e5e5e5;background:#fafafa;display:block;"></canvas>
+
+<div style="display:flex;gap:20px;margin:8px 0 4px;font-size:12px;">
+  <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:10px;border-radius:2px;display:inline-block;background:#2a7ed3;"></span>S – Anfällig</span>
+  <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:10px;border-radius:2px;display:inline-block;background:#e05a2b;"></span>I – Infektiös</span>
+  <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:10px;border-radius:2px;display:inline-block;background:#2e9e5b;"></span>R – Erholt/Immun</span>
+</div>
+<div id="sirPeak" style="margin-top:8px;font-size:12px;color:#555;background:#f9f9f9;border-radius:6px;padding:8px 12px;"></div>
+</div>
+
+<script>
+(function(){
+  function simulate(beta, gamma, N, I0) {
+    var S=N-I0, I=I0, R=0, dt=0.5;
+    var days=[], sA=[], iA=[], rA=[];
+    for (var t=0; t<=365; t+=dt) {
+      days.push(t); sA.push(S/N*100); iA.push(I/N*100); rA.push(R/N*100);
+      var dS=-beta*S*I/N*dt, dI=(beta*S*I/N-gamma*I)*dt, dR=gamma*I*dt;
+      S+=dS; I+=dI; R+=dR;
+      if (I<0.001 && t>5) break;
+    }
+    return {days:days,sA:sA,iA:iA,rA:rA};
+  }
+  function draw() {
+    var beta=parseFloat(document.getElementById('sir_beta').value);
+    var gamma=parseFloat(document.getElementById('sir_gamma').value);
+    var N=parseInt(document.getElementById('sir_n').value);
+    var I0=parseInt(document.getElementById('sir_i0').value);
+    document.getElementById('bval').textContent=beta.toFixed(2);
+    document.getElementById('gval').textContent=gamma.toFixed(2);
+    document.getElementById('nval').textContent=N.toLocaleString('de-DE');
+    document.getElementById('i0val').textContent=I0;
+    var r0=beta/gamma;
+    document.getElementById('r0val').textContent=r0.toFixed(2);
+    var rs=document.getElementById('r0status');
+    if (r0>1){rs.textContent='Epidemie möglich';rs.style.background='#fee2e2';rs.style.color='#991b1b';}
+    else{rs.textContent='Kein Ausbruch';rs.style.background='#dcfce7';rs.style.color='#166534';}
+    var d=simulate(beta,gamma,N,I0);
+    var maxI=0,peakDay=0;
+    for (var k=0;k<d.iA.length;k++){if(d.iA[k]>maxI){maxI=d.iA[k];peakDay=d.days[k];}}
+    var finalR=d.rA[d.rA.length-1];
+    document.getElementById('sirPeak').innerHTML=
+      '<strong>Infektionsgipfel:</strong> '+maxI.toFixed(1)+'% der Bevölkerung (Tag '+Math.round(peakDay)+')'+
+      ' &nbsp;|&nbsp; <strong>Gesamtinfizierte:</strong> ca. '+finalR.toFixed(1)+'% ('+Math.round(finalR/100*N).toLocaleString('de-DE')+' Personen)';
+    var canvas=document.getElementById('sirChart');
+    canvas.width=canvas.offsetWidth||680;
+    var ctx=canvas.getContext('2d');
+    var W=canvas.width,H=canvas.height;
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#fafafa';ctx.fillRect(0,0,W,H);
+    var pad={top:16,right:16,bottom:36,left:46};
+    var pW=W-pad.left-pad.right,pH=H-pad.top-pad.bottom;
+    var maxDay=d.days[d.days.length-1];
+    var xOf=function(day){return pad.left+(day/maxDay)*pW;};
+    var yOf=function(v){return pad.top+pH-(v/100)*pH;};
+    ctx.strokeStyle='#e5e5e5';ctx.lineWidth=1;
+    [0,25,50,75,100].forEach(function(g){
+      var y=yOf(g);ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(pad.left+pW,y);ctx.stroke();
+      ctx.fillStyle='#999';ctx.font='11px system-ui';ctx.textAlign='right';
+      ctx.fillText(g+'%',pad.left-5,y+4);
+    });
+    [0,60,120,180,240,300,365].filter(function(x){return x<=maxDay;}).forEach(function(dd){
+      var x=xOf(dd);ctx.beginPath();ctx.moveTo(x,pad.top+pH);ctx.lineTo(x,pad.top+pH+4);ctx.stroke();
+      ctx.fillStyle='#999';ctx.textAlign='center';ctx.font='11px system-ui';
+      ctx.fillText('T'+dd,x,pad.top+pH+16);
+    });
+    [{arr:d.sA,col:'#2a7ed3'},{arr:d.rA,col:'#2e9e5b'},{arr:d.iA,col:'#e05a2b'}].forEach(function(s){
+      ctx.beginPath();ctx.strokeStyle=s.col;ctx.lineWidth=2.5;
+      s.arr.forEach(function(v,k){var x=xOf(d.days[k]),y=yOf(v);k===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+      ctx.stroke();
+    });
+    ctx.strokeStyle='#ccc';ctx.lineWidth=1;ctx.strokeRect(pad.left,pad.top,pW,pH);
+  }
+  ['sir_beta','sir_gamma','sir_n','sir_i0'].forEach(function(id){
+    document.getElementById(id).addEventListener('input',draw);
+  });
+  draw();
+  window.addEventListener('resize',draw);
+})();
+</script>
+
+## Aufgaben
+
+**Aufgabe 1 – Basiswissen:** Setzt β = 0,30 und γ = 0,10.
+
+- Wie groß ist R₀?
+- Wie viel Prozent der Bevölkerung sind am Peak gleichzeitig krank?
+- Was passiert, wenn ihr γ auf 0,30 erhöht?
+
+**Aufgabe 2 – Herdenimmunität:** Die Schwelle liegt bei $1 - \frac{1}{R_0}$.
+
+- Berechnet die Schwelle für R₀ = 3.
+- Wie viele Personen müssten geimpft sein, damit die Epidemie nicht ausbricht?
+
+**Aufgabe 3 – Kurve abflachen:** Reduziert β stark (z. B. von 0,50 auf 0,15).
+
+- Wie verändert sich die I-Kurve? Was bedeutet „die Kurve abflachen"?
+
+**Aufgabe 4 – Vergleich realer Krankheiten:**
+
+| Krankheit | β | γ | R₀ |
+|-----------|---|---|-----|
+| Influenza | 0,25 | 0,17 | ~1,5 |
+| COVID-19 | 0,35 | 0,10 | ~3,5 |
+| Masern | 0,90 | 0,07 | ~13 |
+
+## Grenzen des Modells
+
+- **Homogene Durchmischung:** Alle Personen begegnen sich gleich häufig – Netzwerkstrukturen werden ignoriert.
+- **Keine Inkubationszeit:** Infizierte sind sofort ansteckend (realistischer: SEIR-Modell mit *Exposed*-Phase).
+- **Lebenslange Immunität:** Jeder Genesene ist dauerhaft immun.
+---
+
+
 # 9. Quellen
 
 ---
